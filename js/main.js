@@ -6,6 +6,12 @@
  * All buttons and dynamic elements will automatically update with these values.
  */
 
+const REGISTRATION_DEADLINE = new Date("2026-11-03T20:00:00+01:00").getTime();
+
+function getRemainingSeconds() {
+  return Math.max(0, Math.floor((REGISTRATION_DEADLINE - Date.now()) / 1000));
+}
+
 const CONFIG = {
   WHATSAPP_LINK: "https://chat.whatsapp.com/Lr0s1w5Bs5PC456R3Gpz8U",
   BRAND_NAME: "Side Hustle",
@@ -17,8 +23,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // 1. Initialize Brand, Host, and WhatsApp Links
   applyConfig();
 
-  // 2. Initialize Rolling Countdown Timer
-  initRollingCountdown(CONFIG.COUNTDOWN_SECONDS);
+  // 2. Initialize Real Deadline Countdown Timer
+  initDeadlineCountdown();
 
   // 3. Initialize Lightbox for Testimonials
   initLightbox();
@@ -48,7 +54,10 @@ function applyConfig() {
     btn.setAttribute("rel", "noopener noreferrer");
     
     // Fallback click handler ensuring prompt navigation
-    btn.addEventListener("click", (e) => {
+    btn.addEventListener("click", () => {
+      // Meta Pixel: record a Lead when someone taps a Join button
+      if (window.fbq) fbq("track", "Lead");
+
       if (!CONFIG.WHATSAPP_LINK || CONFIG.WHATSAPP_LINK === "PLACEHOLDER_WHATSAPP_LINK") {
         console.warn("Please configure your actual WhatsApp link in js/main.js (CONFIG.WHATSAPP_LINK).");
       }
@@ -62,43 +71,49 @@ function applyConfig() {
 }
 
 /**
- * Rolling Countdown Timer:
- * Starts at COUNTDOWN_SECONDS on every page load and counts down to 00:00.
- * When it hits 00:00, displays "Registration is closing. Join now." without disabling CTA.
+ * Real countdown to REGISTRATION_DEADLINE (8:00 PM Nigeria time).
+ * Uses the clock, so refreshing the page never resets it.
  */
-function initRollingCountdown(initialSeconds) {
+function initDeadlineCountdown() {
+  const hoursEl = document.getElementById("countdown-hours");
   const minutesEl = document.getElementById("countdown-minutes");
   const secondsEl = document.getElementById("countdown-seconds");
   const noticeEl = document.getElementById("countdown-notice");
 
   if (!minutesEl || !secondsEl) return;
 
-  let remaining = parseInt(initialSeconds, 10);
-  if (isNaN(remaining) || remaining <= 0) remaining = 180;
+  const pad = (n) => String(n).padStart(2, "0");
 
-  function render(secs) {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    minutesEl.textContent = String(m).padStart(2, "0");
-    secondsEl.textContent = String(s).padStart(2, "0");
+  function render(total) {
+    const s = total % 60;
+    let m = Math.floor(total / 60) % 60;
+    const h = Math.floor(total / 3600);
+
+    if (hoursEl) {
+      hoursEl.textContent = pad(h);
+    } else {
+      // No hours box in the HTML yet: fold hours into minutes
+      m = Math.floor(total / 60);
+    }
+    minutesEl.textContent = pad(m);
+    secondsEl.textContent = pad(s);
   }
 
-  render(remaining);
-
-  const timerInterval = setInterval(() => {
-    remaining--;
+  function tick() {
+    const remaining = getRemainingSeconds();
+    render(remaining);
 
     if (remaining <= 0) {
       clearInterval(timerInterval);
-      render(0);
       if (noticeEl) {
-        noticeEl.textContent = "Registration is closing. Join now.";
+        noticeEl.textContent = "Registration has closed.";
         noticeEl.style.color = "var(--color-accent-gold)";
       }
-    } else {
-      render(remaining);
     }
-  }, 1000);
+  }
+
+  const timerInterval = setInterval(tick, 1000);
+  tick();
 }
 
 /**
