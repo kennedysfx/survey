@@ -892,3 +892,9 @@ dialog::backdrop {
     font-size: 0.82rem;
   }
 }
+
+@media (max-width: 767px) {
+  .testimonials-grid {
+    grid-template-columns: 1fr;
+  }
+}
